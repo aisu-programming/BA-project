@@ -1,0 +1,390 @@
+import os
+import sys
+import json
+from datetime import datetime, timedelta
+
+
+TEST = True
+
+def read_data1():
+    step1_files = [
+        '1 - 年、中、季報預披露日期/2009.txt',
+        '1 - 年、中、季報預披露日期/2010-2019.txt',
+    ]
+
+    # season_dict = {}
+    # for year in range(11):
+    #     for date in ['0331', '0630', '0930', '1231']:
+    #         season_dict[f'20{year+9:02d}{date}'] = []
+
+    output_dict = {}
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start reading Data 1.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for file in step1_files:
+        now_file = open(file, mode='r', encoding="utf-16-le")
+        contents = now_file.read()
+        contents = contents.split('\n')
+        contents = contents[1:]
+        for row in contents:
+            items = row.split('\t')
+            if TEST and items[0] != '000002':
+                continue
+            if items[-1] == '':
+                continue
+            actudt = datetime.strptime(items[-1], '%Y-%m-%d').strftime('%Y%m%d')
+            if items[0] not in output_dict.keys():
+                output_dict[items[0]] = {
+                    'Stkcd': items[0],
+                    'Stknme': items[1],
+                    'Seasons': { actudt: [] },
+                }
+            else:
+                output_dict[items[0]]['Seasons'][actudt] = []
+
+        # toolbar
+        sys.stdout.write("-" * int(toolbar_width/int(len(step1_files))))
+        sys.stdout.flush()
+
+        now_file.close()
+
+    sys.stdout.write("]\n")
+    return output_dict
+
+def read_data2():
+    step2_files = [
+        '2 - 日個股回報率文件/2009.txt',
+        '2 - 日個股回報率文件/2010.txt',
+        '2 - 日個股回報率文件/2011.txt',
+        '2 - 日個股回報率文件/2012.txt',
+        '2 - 日個股回報率文件/2013.txt',
+        '2 - 日個股回報率文件/2014.txt',
+        '2 - 日個股回報率文件/2015.txt',
+        '2 - 日個股回報率文件/2016.txt',
+        '2 - 日個股回報率文件/2017.txt',
+        '2 - 日個股回報率文件/2018.txt',
+        '2 - 日個股回報率文件/2019.txt',
+    ]
+    
+    output_array = []
+    
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start reading Data 2.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for file in step2_files:
+        now_file = open(file, mode='r', encoding="utf-16-le")
+        contents = now_file.read()
+        contents = contents.split('\n')
+        contents = contents[1:]
+        for row in contents:
+            if row != '':
+                items = row.split('\t')
+                if TEST and items[0] != '000002':
+                    continue
+                market_type = int(items[3])
+                trdsta = int(items[4])
+                if market_type not in [2, 8, 16, 32] and trdsta == 1:
+                    output_array.append({
+                        'Stkcd': items[0],
+                        'Trddt': datetime.strptime(items[1], '%Y-%m-%d').strftime('%Y%m%d'),
+                        'Dretwd': float(items[2]),
+                        'Markettype': market_type,
+                        'Trdsta': trdsta,
+                    })
+        # toolbar
+        sys.stdout.write("-" * int(toolbar_width/int(len(step2_files))))
+        sys.stdout.flush()
+
+        now_file.close()
+    
+    sys.stdout.write("]\n")
+    return output_array
+
+def read_data3():
+    step3_file = [
+        '3 - 無風險利率文件/2009.txt',
+        '3 - 無風險利率文件/2010-2019.txt',
+    ]
+
+    output_dict = {}
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start reading Data 3.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for file in step3_file:
+        now_file = open(file, mode='r', encoding="utf-16-le")
+        contents = now_file.read()
+        contents = contents.split('\n')
+        contents = contents[1:]
+        for row in contents:
+            if row != '':
+                items = row.split('\t')
+                nrrdaydt = float(items[2]) if len(items) == 3 else float(items[3])
+                clsdt = datetime.strptime(items[1], '%Y-%m-%d').strftime('%Y%m%d')
+                output_dict[clsdt] = {
+                    # 'Nrr1': items[0],
+                    # 'Clsdt': clsdt,
+                    # 'Nrrdata': float(items[2]),
+                    'Nrrdaydt': nrrdaydt,
+                }
+
+        # toolbar
+        sys.stdout.write("-" * int(toolbar_width/int(len(step3_file))))
+        sys.stdout.flush()
+
+        now_file.close()
+
+    sys.stdout.write("]\n")
+    return output_dict
+
+def read_data4():
+    step4_files = [
+        '4 - 綜合市場日回報率/2009.txt',
+        '4 - 綜合市場日回報率/2010.txt',
+        '4 - 綜合市場日回報率/2011.txt',
+        '4 - 綜合市場日回報率/2012.txt',
+        '4 - 綜合市場日回報率/2013.txt',
+        '4 - 綜合市場日回報率/2014.txt',
+        '4 - 綜合市場日回報率/2015.txt',
+        '4 - 綜合市場日回報率/2016.txt',
+        '4 - 綜合市場日回報率/2017.txt',
+        '4 - 綜合市場日回報率/2018.txt',
+        '4 - 綜合市場日回報率/2019.txt',
+    ]
+
+    output_dict = {}
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start reading Data 4.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for file in step4_files:
+        now_file = open(file, mode='r', encoding="utf-16-le")
+        contents = now_file.read()
+        contents = contents.split('\n')
+        contents = contents[1:]
+        for row in contents:
+            if row != '':
+                items = row.split('\t')
+                if items[0] == '5':
+                    trddt = datetime.strptime(items[1], '%Y-%m-%d').strftime('%Y%m%d')
+                    output_dict[trddt] = {
+                        # 'Markettype': items[0],
+                        # 'Trddt': trddt,
+                        'Cdretwdeq': float(items[2]),
+                        'Cdretwdos': float(items[3]),
+                        'Cdretwdtl': float(items[4]),
+                    }
+
+        # toolbar
+        sys.stdout.write("-" * int(toolbar_width/int(len(step4_files))))
+        sys.stdout.flush()
+        
+        now_file.close()
+
+    sys.stdout.write("]\n")
+    return output_dict
+
+def read_data5():
+    step5_files = [
+        '5 - 相對價值指標/2009.txt',
+        '5 - 相對價值指標/2010.txt',
+        '5 - 相對價值指標/2011.txt',
+        '5 - 相對價值指標/2012.txt',
+        '5 - 相對價值指標/2013.txt',
+        '5 - 相對價值指標/2014.txt',
+        '5 - 相對價值指標/2015.txt',
+        '5 - 相對價值指標/2016.txt',
+        '5 - 相對價值指標/2017.txt',
+        '5 - 相對價值指標/2018.txt',
+        '5 - 相對價值指標/2019.txt',
+    ]
+    
+    output_dict = {}
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start reading Data 5.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for file in step5_files:
+        now_file = open(file, mode='r', encoding="utf-16-le")
+        contents = now_file.read()
+        contents = contents.split('\n')
+        contents = contents[1:]
+        for row in contents:
+            items = row.split('\t')
+            if TEST and items[0] != '000002':
+                continue
+            stkcd = items[0]
+            accper = datetime.strptime(items[1], '%Y-%m-%d').strftime('%Y%m%d')
+            if stkcd not in output_dict.keys():
+                output_dict[stkcd] = {
+                    accper: {
+                        'F100802A': float(items[4]),
+                        'F101002A': float(items[6]),
+                    }
+                }
+            else:
+                output_dict[stkcd][accper] = {
+                    'F100802A': float(items[4]),
+                    'F101002A': float(items[6]),
+                }
+
+        # toolbar
+        sys.stdout.write("-" * int(toolbar_width/int(len(step5_files))))
+        sys.stdout.flush()
+
+        now_file.close()
+
+    sys.stdout.write("]\n")
+    return output_dict
+
+def merge_data2_into_data1(data1, data2):
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start merging Data 2 into Data 1.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for index_i, data in enumerate(data2):
+        for index_j, key in enumerate(data1[data['Stkcd']]['Seasons'].keys()):
+            if int(data['Trddt']) < int(key):
+                if index_j != 0:
+                    last_key = list(data1[data['Stkcd']]['Seasons'].keys())[index_j-1]
+                    kill_date = datetime.strptime(last_key, '%Y%m%d') + timedelta(days=2)
+                    if int(data['Trddt']) <= int(kill_date.strftime('%Y%m%d')):
+                        continue
+                data1[data['Stkcd']]['Seasons'][key].append({
+                    'Trddt': data['Trddt'],
+                    'Dretwd': data['Dretwd'],
+                    'Markettype': data['Markettype'],
+                    'Trdsta': data['Trdsta'],
+                })
+                break
+        # toolbar
+        # if (index_i+1) % (int(len(data2) / toolbar_width)) == 0:
+    sys.stdout.write("-" * 88)
+    sys.stdout.flush()
+
+    sys.stdout.write("]\n")
+    return data1
+
+def merge_data3_into_data1(data1, data3):
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start merging Data 3 into Data 1.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for index, company_data in enumerate(data1.values()):
+        for season_data in company_data['Seasons'].values():
+            for data in season_data:
+                data['Nrrdaydt'] = data3[data['Trddt']]['Nrrdaydt']
+        # toolbar
+        # if (index+1) % (int(len(data1) / toolbar_width)) == 0:
+    sys.stdout.write("-" * 88)
+    sys.stdout.flush()
+
+    sys.stdout.write("]\n")
+    return data1
+
+def merge_data4_into_data1(data1, data4):
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start merging Data 4 into Data 1.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for index, company_data in enumerate(data1.values()):
+        for season_data in company_data['Seasons'].values():
+            for data in season_data:
+                data['Cdretwdeq'] = data4[data['Trddt']]['Cdretwdeq']
+                data['Cdretwdos'] = data4[data['Trddt']]['Cdretwdos']
+                data['Cdretwdtl'] = data4[data['Trddt']]['Cdretwdtl']
+        # toolbar
+        # if (index+1) % (int(len(data1) / toolbar_width)) == 0:
+    sys.stdout.write("-" * 88)
+    sys.stdout.flush()
+
+    sys.stdout.write("]\n")
+    return data1
+
+def merge_data5_into_data1(data1, data5):
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start merging Data 5 into Data 1.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    for index, company_data in enumerate(data1.values()):
+        for season_data in company_data['Seasons'].values():
+            for data in season_data:
+                for key in data5[company_data['Stkcd']].keys():
+                    if int(data['Trddt']) <= int(key):
+                        data['F100802A'] = data5[company_data['Stkcd']][key]['F100802A']
+                        data['F101002A'] = data5[company_data['Stkcd']][key]['F101002A']
+                        break
+        # toolbar
+        # if (index+1) % (int(len(data1) / toolbar_width)) == 0:
+    sys.stdout.write("-" * 88)
+    sys.stdout.flush()
+
+    sys.stdout.write("]\n")
+    return data1
+
+
+def main():
+
+    os.system('cls')
+
+    data1 = read_data1()
+    data2 = read_data2()
+    data3 = read_data3()
+    data4 = read_data4()
+    data5 = read_data5()
+
+    data1 = merge_data2_into_data1(data1=data1, data2=data2)
+    data1 = merge_data3_into_data1(data1=data1, data3=data3)
+    data1 = merge_data4_into_data1(data1=data1, data4=data4)
+    data1 = merge_data5_into_data1(data1=data1, data5=data5)
+    
+    print('Start writing ouput.')
+    
+    with open(file='output.txt', mode='w', encoding="utf-8") as f:
+        json.dump(data1, f, indent=4, ensure_ascii=False)
+
+    return
+    
+    # for index, data in enumerate(step1_data):
+    #     if index == 0:
+    #         data['start'] = datetime.strptime('20000101', '%Y%m%d')
+
+    # print('Start filtering Data 2')
+    # step2_data = list(filter(lambda data: data['Markettype'] not in [2, 8, 16, 32] and data['Trdsta'] == 1, step2_data))
+    
+    # for i in step2_data:
+    #     for j in step1_data:
+    #         if i['Trddt'] < j['']
+
+
+if __name__ == "__main__":
+    main()
+    print('Finished.')
