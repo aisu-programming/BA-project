@@ -86,8 +86,8 @@ def read_data2():
         for row in contents:
             if row != '':
                 items = row.split('\t')
-                if TEST and items[0] != '000002':
-                    continue
+                # if TEST and items[0] != '000002':
+                #     continue
                 market_type = int(items[3])
                 trdsta = int(items[4])
                 if market_type not in [2, 8, 16, 32] and trdsta == 1:
@@ -226,9 +226,9 @@ def read_data5():
         contents = contents.split('\n')
         contents = contents[1:]
         for row in contents:
-            items = row.split('\t')
-            if TEST and items[0] != '000002':
+            if row == '':
                 continue
+            items = row.split('\t')
             stkcd = items[0]
             accper = datetime.strptime(items[1], '%Y-%m-%d').strftime('%Y%m%d')
             if stkcd not in output_dict.keys():
@@ -262,6 +262,8 @@ def merge_data2_into_data1(data1, data2):
     sys.stdout.write("\b" * (toolbar_width+1))
 
     for index_i, data in enumerate(data2):
+        if TEST and data['Stkcd'] != '000002':
+            continue
         for index_j, key in enumerate(data1[data['Stkcd']]['Seasons'].keys()):
             if int(data['Trddt']) < int(key):
                 if index_j != 0:
@@ -326,29 +328,106 @@ def merge_data4_into_data1(data1, data4):
     sys.stdout.write("]\n")
     return data1
 
-def merge_data5_into_data1(data1, data5):
+def get_season_dict_from_data2_and_data5(data2, data5):
 
     # toolbar
     toolbar_width = 88
-    sys.stdout.write("Start merging Data 5 into Data 1.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.write("Start getting season dictionary from Data 2 into Data 5.\n[%s]" % (" " * toolbar_width))
     sys.stdout.flush()
     sys.stdout.write("\b" * (toolbar_width+1))
 
-    for index, company_data in enumerate(data1.values()):
-        for season_data in company_data['Seasons'].values():
-            for data in season_data:
-                for key in data5[company_data['Stkcd']].keys():
-                    if int(data['Trddt']) <= int(key):
-                        data['F100802A'] = data5[company_data['Stkcd']][key]['F100802A']
-                        data['F101002A'] = data5[company_data['Stkcd']][key]['F101002A']
-                        break
+    season_dict = {}
+
+    for index, data in enumerate(data2):
+        for key in data5[data['Stkcd']].keys():
+            if int(data['Trddt']) <= int(key):
+                if key not in season_dict.keys():
+                    season_dict[key] = []
+                # data['F100802A'] = data5[data['Stkcd']][key]['F100802A']
+                # data['F101002A'] = data5[data['Stkcd']][key]['F101002A']
+                season_dict[key].append({
+                    'Dretwd': data['Dretwd'],
+                    'F100802A': data5[data['Stkcd']][key]['F100802A'],
+                    'F101002A': data5[data['Stkcd']][key]['F101002A'],
+                })
+                break
         # toolbar
-        # if (index+1) % (int(len(data1) / toolbar_width)) == 0:
-    sys.stdout.write("-" * 88)
-    sys.stdout.flush()
+        if (index+1) % (int(len(data2) / toolbar_width)) == 0:
+            sys.stdout.write("-")
+            sys.stdout.flush()
 
     sys.stdout.write("]\n")
-    return data1
+    return season_dict
+
+def get_SMB_and_HML(season_dict):
+
+    # toolbar
+    toolbar_width = 88
+    sys.stdout.write("Start getting SMB from season dictionary.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    SMB_dict = {}
+
+    for index, key in enumerate(season_dict.keys()):
+
+        season = season_dict[key]
+        
+        SMB_data = sorted(season, key=lambda k: k['F100802A'])
+        SMB_sm = SMB_data[:int(len(SMB_data)*0.5)]
+        SMB_lg = SMB_data[int(len(SMB_data)*0.5)+1:]
+
+        SMB_sm = sorted(SMB_sm, key=lambda k: k['F101002A'])
+        SMB_sm_HML_sm = SMB_sm[:int(len(SMB_sm)*0.3)]
+        SMB_sm_HML_md = SMB_sm[int(len(SMB_sm)*0.3)+1:int(len(SMB_sm)*0.7)]
+        SMB_sm_HML_lg = SMB_sm[int(len(SMB_sm)*0.7)+1:]
+        
+        SMB_lg = sorted(SMB_lg, key=lambda k: k['F101002A'])
+        SMB_lg_HML_sm = SMB_lg[:int(len(SMB_lg)*0.3)]
+        SMB_lg_HML_md = SMB_lg[int(len(SMB_lg)*0.3)+1:int(len(SMB_lg)*0.7)]
+        SMB_lg_HML_lg = SMB_lg[int(len(SMB_lg)*0.7)+1:]
+
+        SMB = 0
+        for data in [SMB_sm_HML_sm, SMB_sm_HML_md, SMB_sm_HML_lg]:
+            SMB_temp = 0
+            for dictionary in data:
+                SMB_temp += dictionary['Dretwd']
+            SMB_temp /= len(data)
+            SMB += SMB_temp
+        for data in [SMB_lg_HML_sm, SMB_lg_HML_md, SMB_lg_HML_lg]:
+            SMB_temp = 0
+            for dictionary in data:
+                SMB_temp += dictionary['Dretwd']
+            SMB_temp /= len(data)
+            SMB -= SMB_temp
+        SMB /= 3
+
+        HML = 0
+        for data in [SMB_sm_HML_lg, SMB_lg_HML_lg]:
+            HML_temp = 0
+            for dictionary in data:
+                HML_temp += dictionary['Dretwd']
+            HML_temp /= len(data)
+            HML += HML_temp
+        for data in [SMB_sm_HML_sm, SMB_lg_HML_sm]:
+            HML_temp = 0
+            for dictionary in data:
+                HML_temp += dictionary['Dretwd']
+            HML_temp /= len(data)
+            HML -= HML_temp
+        HML /= 2
+
+        SMB_dict[key] = {
+            'SMB': SMB,
+            'HML': HML,
+        }
+
+        # toolbar
+        sys.stdout.write("--")
+        sys.stdout.flush()
+
+    sys.stdout.write("]\n")
+    return season_dict
 
 
 def main():
@@ -364,12 +443,17 @@ def main():
     data1 = merge_data2_into_data1(data1=data1, data2=data2)
     data1 = merge_data3_into_data1(data1=data1, data3=data3)
     data1 = merge_data4_into_data1(data1=data1, data4=data4)
-    data1 = merge_data5_into_data1(data1=data1, data5=data5)
+
+    season_dict = get_season_dict_from_data2_and_data5(data2=data2, data5=data5)
+    SMB_and_HML = get_SMB_and_HML(season_dict=season_dict)
     
     print('Start writing ouput.')
     
     with open(file='output.txt', mode='w', encoding="utf-8") as f:
         json.dump(data1, f, indent=4, ensure_ascii=False)
+    
+    with open(file='SMB_and_HML.txt', mode='w', encoding="utf-8") as f:
+        json.dump(SMB_and_HML, f, indent=4, ensure_ascii=False)
 
     return
     
