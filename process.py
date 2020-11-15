@@ -1,7 +1,12 @@
+# Processing Data
 import os
 import sys
 import json
 from datetime import datetime, timedelta
+
+# Linear Regression
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 
 TEST = True
@@ -229,6 +234,8 @@ def read_data5():
             if row == '':
                 continue
             items = row.split('\t')
+            if items[2][0] == 'J':
+                continue
             stkcd = items[0]
             accper = datetime.strptime(items[1], '%Y-%m-%d').strftime('%Y%m%d')
             if stkcd not in output_dict.keys():
@@ -332,20 +339,22 @@ def get_season_dict_from_data2_and_data5(data2, data5):
 
     # toolbar
     toolbar_width = 88
-    sys.stdout.write("Start getting season dictionary from Data 2 into Data 5.\n[%s]" % (" " * toolbar_width))
+    sys.stdout.write("Start getting season dictionary from Data 2 and Data 5.\n[%s]" % (" " * toolbar_width))
     sys.stdout.flush()
     sys.stdout.write("\b" * (toolbar_width+1))
 
     season_dict = {}
 
     for index, data in enumerate(data2):
+        if data['Stkcd'] not in data5.keys():
+            continue
         for key in data5[data['Stkcd']].keys():
             if int(data['Trddt']) <= int(key):
                 if key not in season_dict.keys():
                     season_dict[key] = []
-                # data['F100802A'] = data5[data['Stkcd']][key]['F100802A']
-                # data['F101002A'] = data5[data['Stkcd']][key]['F101002A']
                 season_dict[key].append({
+                    'Stkcd': data['Stkcd'],
+                    'Trddt': data['Trddt'],
                     'Dretwd': data['Dretwd'],
                     'F100802A': data5[data['Stkcd']][key]['F100802A'],
                     'F101002A': data5[data['Stkcd']][key]['F101002A'],
@@ -369,7 +378,7 @@ def get_SMB_and_HML(season_dict):
 
     SMB_dict = {}
 
-    for index, key in enumerate(season_dict.keys()):
+    for key in season_dict.keys():
 
         season = season_dict[key]
         
@@ -392,14 +401,12 @@ def get_SMB_and_HML(season_dict):
             SMB_temp = 0
             for dictionary in data:
                 SMB_temp += dictionary['Dretwd']
-            SMB_temp /= len(data)
-            SMB += SMB_temp
+            SMB += SMB_temp / len(data)
         for data in [SMB_lg_HML_sm, SMB_lg_HML_md, SMB_lg_HML_lg]:
             SMB_temp = 0
             for dictionary in data:
                 SMB_temp += dictionary['Dretwd']
-            SMB_temp /= len(data)
-            SMB -= SMB_temp
+            SMB -= SMB_temp / len(data)
         SMB /= 3
 
         HML = 0
@@ -427,7 +434,9 @@ def get_SMB_and_HML(season_dict):
         sys.stdout.flush()
 
     sys.stdout.write("]\n")
-    return season_dict
+
+    SMB_dict = {k: v for k, v in sorted(SMB_dict.items(), key=lambda item: item[0])}
+    return SMB_dict
 
 
 def main():
@@ -448,25 +457,43 @@ def main():
     SMB_and_HML = get_SMB_and_HML(season_dict=season_dict)
     
     print('Start writing ouput.')
+    # with open(file='season_dict.txt', mode='w', encoding="utf-8") as f:
+    #     f.write('Stkcd\tTrddt\tDretwd\tF100802A\tF101002A\n')
+    #     for index, array in enumerate(season_dict.values()):
+    #         if index == 4:
+    #             break
+    #         for data in array:
+    #             f.write(f"{data['Stkcd']}\t{data['Trddt']}\t{data['Dretwd']}\t{data['F100802A']}\t{data['F101002A']}\n")
+    # with open(file='SMB_and_HML.txt', mode='w', encoding="utf-8") as f:
+    #     json.dump(SMB_and_HML, f, indent=4, ensure_ascii=False)
+
     
-    with open(file='output.txt', mode='w', encoding="utf-8") as f:
-        json.dump(data1, f, indent=4, ensure_ascii=False)
-    
-    with open(file='SMB_and_HML.txt', mode='w', encoding="utf-8") as f:
-        json.dump(SMB_and_HML, f, indent=4, ensure_ascii=False)
+    # Linear Regression
+    Y_array = []
+    X_array = []
+    for index, data in enumerate(data1['000002']['Seasons'].values()):
+        if index == 4:
+            break
+        for dictionary in data:
+            Y_array.append(dictionary['Dretwd'] - dictionary['Nrrdaydt'])   # R_it - R_ft
+            for key in SMB_and_HML.keys():
+                if int(dictionary['Trddt']) <= int(key):
+                    X_array.append([
+                        dictionary['Cdretwdeq'] - dictionary['Nrrdaydt'],   # RM_t - R_ft
+                        SMB_and_HML[key]['SMB'],                            # SMB_t
+                        SMB_and_HML[key]['HML'],                            # HML_t
+                    ])
+                    break
+    Y_array = np.array(Y_array)
+    X_array = np.array(X_array)
+
+    lm = LinearRegression()
+    lm.fit(X_array, Y_array)
+
+    print(lm.coef_)
+    print(lm.intercept_)
 
     return
-    
-    # for index, data in enumerate(step1_data):
-    #     if index == 0:
-    #         data['start'] = datetime.strptime('20000101', '%Y%m%d')
-
-    # print('Start filtering Data 2')
-    # step2_data = list(filter(lambda data: data['Markettype'] not in [2, 8, 16, 32] and data['Trdsta'] == 1, step2_data))
-    
-    # for i in step2_data:
-    #     for j in step1_data:
-    #         if i['Trddt'] < j['']
 
 
 if __name__ == "__main__":
