@@ -201,15 +201,15 @@ def integrate_all_filtered_recommended_data(years):
 
 def previous_season(season):
     if str(season)[-2:] == '01': return f'{(int(str(season)[:4])-1)}04'
-    else: return int(str(season))-1
+    else: return str(int(str(season))-1)
 
 
 def next_season(season):
     if str(season)[-2:] == '04': return f'{(int(str(season)[:4])+1)}01'
-    else: return int(str(season))+1
+    else: return str(int(str(season))+1)
 
 
-def summarize_significance():
+def summarize_significance_and_calculate_difference():
 
     print(f"Summarize significance: Reading all filtered deleted data...")
     all_filtered_deleted_data_path = f"processed_data/all_filtered_deleted.csv"
@@ -222,53 +222,97 @@ def summarize_significance():
     all_filtered_recommended_dictionaries = {}
     for row in tqdm(all_filtered_recommended_data, desc=f'Summarize significance: Transforming data', ascii=True):
 
-        Stkcd       = row[0]
-        EditedRptdt = row[1]
-        Stdrank     = row[3]
+        Stkcd              = row[0]
+        EditedRptdt        = row[1]
+        InstitutionAnanmID = row[2]
+        Stdrank            = row[3]
 
         if Stkcd not in all_filtered_recommended_dictionaries.keys():
-            all_filtered_recommended_dictionaries[Stkcd] = []
-        all_filtered_recommended_dictionaries[Stkcd].append({
-            'Keep'       : False,
-            'EditedRptdt': EditedRptdt,
-            'Stdrank'    : Stdrank,
+            all_filtered_recommended_dictionaries[Stkcd] = {}
+        if InstitutionAnanmID not in all_filtered_recommended_dictionaries[Stkcd].keys():
+            all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID] = []
+        all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID].append({
+            'Keep'              : False,
+            'EditedRptdt'       : EditedRptdt,
+            'Stdrank'           : Stdrank,
         })
 
-    not_existed_Stkcd = []
-    for row_i in tqdm(all_filtered_deleted_data, desc=f'Summarize significance: Filtering data', ascii=True):
-        Stkcd          = int(row_i[0])
-        thisSeason     = int(row_i[1])
-        previousSeason = previous_season(thisSeason)
-        nextSeason     = next_season(thisSeason)
+    for row in tqdm(all_filtered_deleted_data, desc=f'Summarize significance: Filtering data', ascii=True):
+
+        Stkcd               = int(row[0])
+        thisEditedRptdt     = int(row[1])
+        previousEditedRptdt = int(previous_season(thisEditedRptdt))
+        nextEditedRptdt     = int(next_season(thisEditedRptdt))
 
         if Stkcd in all_filtered_recommended_dictionaries.keys():
-            for d in all_filtered_recommended_dictionaries[Stkcd]:
-                if   d['EditedRptdt'] == thisSeason:     d['Keep'] = True
-                elif d['EditedRptdt'] == previousSeason: d['Keep'] = True
-                elif d['EditedRptdt'] == nextSeason:     d['Keep'] = True
-        else: not_existed_Stkcd.append(Stkcd)
+            for InstitutionAnanmID in all_filtered_recommended_dictionaries[Stkcd].keys():
+                related_season_indexs = []
+                for index, d in enumerate(all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID]):
+                    if   d['EditedRptdt'] == thisEditedRptdt:     related_season_indexs.append(index)
+                    elif d['EditedRptdt'] == previousEditedRptdt: related_season_indexs.append(index)
+                    elif d['EditedRptdt'] == nextEditedRptdt:     related_season_indexs.append(index)
+                if len(related_season_indexs) == 3:
+                    for index in related_season_indexs:
+                        all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID][index]['Keep'] = True
 
     for Stkcd in tqdm(all_filtered_recommended_dictionaries.keys(), desc=f'Summarize significance: Averaging data', ascii=True):
-        all_filtered_recommended_dictionaries[Stkcd] = list(filter(lambda e: e['Keep'], all_filtered_recommended_dictionaries[Stkcd]))
+        for InstitutionAnanmID in all_filtered_recommended_dictionaries[Stkcd].keys():
+            all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID] = list(filter(lambda d: d['Keep'], all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID]))
+
         Stkcd_dictionary = {}
-        for d in all_filtered_recommended_dictionaries[Stkcd]:
-            if d['EditedRptdt'] not in Stkcd_dictionary.keys(): Stkcd_dictionary[d['EditedRptdt']] = []
-            Stkcd_dictionary[d['EditedRptdt']].append(d['Stdrank'])
+        for value in all_filtered_recommended_dictionaries[Stkcd].values():
+            for d in value:
+                if d['EditedRptdt'] not in Stkcd_dictionary.keys(): Stkcd_dictionary[d['EditedRptdt']] = []
+                Stkcd_dictionary[d['EditedRptdt']].append(d['Stdrank'])
         for EditedRptdt in Stkcd_dictionary.keys():
             Stkcd_dictionary[EditedRptdt] = sum(Stkcd_dictionary[EditedRptdt]) / len(Stkcd_dictionary[EditedRptdt])
-        all_filtered_recommended_dictionaries[Stkcd] = Stkcd_dictionary
+        all_filtered_recommended_dictionaries[Stkcd] = { t[0]: t[1] for t in sorted(Stkcd_dictionary.items(), key=lambda e: e[0]) }
 
     all_filtered_recommended_data = []
-    for Stkcd in tqdm(all_filtered_recommended_dictionaries.keys(), desc=f'Summarize significance: Averaging data', ascii=True):
+    for Stkcd in tqdm(all_filtered_recommended_dictionaries.keys(), desc=f'Summarize significance: Transforming data', ascii=True):
         for EditedRptdt in all_filtered_recommended_dictionaries[Stkcd].keys():
-            average = all_filtered_recommended_dictionaries[Stkcd][EditedRptdt]
-            all_filtered_recommended_data.append([ Stkcd, EditedRptdt, average ])
-    
+            all_filtered_recommended_data.append([ f'{Stkcd:06d}', EditedRptdt, all_filtered_recommended_dictionaries[Stkcd][EditedRptdt] ])
+
     all_filtered_recommended_data_columns = ['Stkcd', 'EditedRptdt', 'Stdrank']
     all_filtered_recommended_data_output = pd.DataFrame(all_filtered_recommended_data, columns=all_filtered_recommended_data_columns)
-    print(f"Summarize significance: Saving averaged recommended data...")
-    all_filtered_recommended_data_output.to_csv(f"processed_data/averaged_recommended.csv")
-    print(f"Summarize significance: Done. not_existed_Stkcd: {not_existed_Stkcd}\n")
+    print(f"Summarize significance: Saving all significant average recommended data...")
+    all_filtered_recommended_data_output.to_excel(f"processed_data/all_significant_average.xlsx")
+
+
+    not_existed_company_season = []
+    for Stkcd in all_filtered_recommended_dictionaries.keys():
+        for EditedRptdt in all_filtered_recommended_dictionaries[Stkcd].keys():
+            all_filtered_recommended_dictionaries[Stkcd][EditedRptdt] = [ False, all_filtered_recommended_dictionaries[Stkcd][EditedRptdt] ]
+    for row in tqdm(all_filtered_deleted_data, desc=f'Summarize significance: Filtering last data', ascii=True):
+        Stkcd       = int(row[0])
+        EditedRptdt = int(row[1])
+        if Stkcd in all_filtered_recommended_dictionaries.keys():
+            if EditedRptdt in all_filtered_recommended_dictionaries[Stkcd].keys():
+                try:
+                    all_filtered_recommended_dictionaries[Stkcd][EditedRptdt].append(
+                        all_filtered_recommended_dictionaries[Stkcd][int(next_season(EditedRptdt))][1] - \
+                            all_filtered_recommended_dictionaries[Stkcd][int(previous_season(EditedRptdt))][1]
+                    )
+                    all_filtered_recommended_dictionaries[Stkcd][EditedRptdt][0] = True
+                except:
+                    not_existed_company_season.append((f'{Stkcd:06d}', EditedRptdt))
+    all_filtered_recommended_data = []
+    for Stkcd in all_filtered_recommended_dictionaries.keys():
+        all_filtered_recommended_dictionaries[Stkcd] = {
+            t[0]: [ t[1][1], t[1][2] ] for t in list(filter(lambda e: e[1][0], all_filtered_recommended_dictionaries[Stkcd].items()))
+        }
+        for EditedRptdt in all_filtered_recommended_dictionaries[Stkcd].keys():
+            all_filtered_recommended_data.append([
+                Stkcd,
+                EditedRptdt,
+                all_filtered_recommended_dictionaries[Stkcd][EditedRptdt][0],
+                all_filtered_recommended_dictionaries[Stkcd][EditedRptdt][1]
+            ])
+    all_filtered_recommended_data_columns = ['Stkcd', 'EditedRptdt', 'Stdrank', 'Difference (Next-Previous)']
+    all_filtered_recommended_data_output = pd.DataFrame(all_filtered_recommended_data, columns=all_filtered_recommended_data_columns)
+    print(f"Summarize significance: Saving filtered significant average recommended data...")
+    all_filtered_recommended_data_output.to_excel(f"processed_data/filtered_significant_average.xlsx")
+    print(f"Summarize significance: Done. not_existed_company_season: {not_existed_company_season}\n")
 
 
 ''' Execution '''
@@ -292,4 +336,4 @@ if __name__ == "__main__":
     # integrate_all_filtered_deleted_data(deleted_files_years)
     # integrate_all_filtered_recommended_data(recommended_files_years)
 
-    summarize_significance()
+    summarize_significance_and_calculate_difference()
