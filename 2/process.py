@@ -171,10 +171,14 @@ def integrate_all_filtered_deleted_data(years):
     all_filtered_deleted_data = sorted(all_filtered_deleted_data, key=lambda e: e[1])
     all_filtered_deleted_data = sorted(all_filtered_deleted_data, key=lambda e: e[0])
 
+    all_filtered_deleted_data = [
+        [ f'{int(row[0]):06d}', row[1] ] for row in all_filtered_deleted_data
+    ]
+
     filtered_deleted_data_columns = ['Stkcd', 'EditedPostDate']
     all_filtered_deleted_data_output = pd.DataFrame(all_filtered_deleted_data, columns=filtered_deleted_data_columns)
     print(f"Integrate all filtered deleted: Saving all filtered deleted data...")
-    all_filtered_deleted_data_output.to_csv(f"processed_data/all_filtered_deleted.csv")
+    all_filtered_deleted_data_output.to_excel(f"processed_data/all_filtered_deleted.xlsx")
     print(f"Integrate all filtered deleted: Done.\n")
 
 
@@ -192,10 +196,14 @@ def integrate_all_filtered_recommended_data(years):
     all_filtered_recommended_data = sorted(all_filtered_recommended_data, key=lambda e: e[1])
     all_filtered_recommended_data = sorted(all_filtered_recommended_data, key=lambda e: e[0])
 
+    all_filtered_recommended_data = [
+        [ f'{int(row[0]):06d}', row[1], row[2], row[3] ] for row in all_filtered_recommended_data
+    ]
+
     all_filtered_recommended_data_columns = ['Stkcd', 'EditedRptdt', 'InstitutionAnanmID', 'Stdrank']
     all_filtered_recommended_data_output = pd.DataFrame(all_filtered_recommended_data, columns=all_filtered_recommended_data_columns)
     print(f"Integrate all filtered recommended: Saving all filtered recommended data...")
-    all_filtered_recommended_data_output.to_csv(f"processed_data/all_filtered_recommended.csv")
+    all_filtered_recommended_data_output.to_excel(f"processed_data/all_filtered_recommended.xlsx")
     print(f"Integrate all filtered recommended: Done.\n")
 
 
@@ -212,12 +220,12 @@ def next_season(season):
 def summarize_significance_and_calculate_difference():
 
     print(f"Summarize significance: Reading all filtered deleted data...")
-    all_filtered_deleted_data_path = f"processed_data/all_filtered_deleted.csv"
-    all_filtered_deleted_data = pd.read_csv(all_filtered_deleted_data_path, index_col=0).values
+    all_filtered_deleted_data_path = f"processed_data/all_filtered_deleted.xlsx"
+    all_filtered_deleted_data = pd.read_excel(all_filtered_deleted_data_path, index_col=0).values
 
     print(f"Summarize significance: Reading all filtered recommended data...")
-    all_filtered_recommended_data_path = f"processed_data/all_filtered_recommended.csv"
-    all_filtered_recommended_data = pd.read_csv(all_filtered_recommended_data_path, index_col=0).values
+    all_filtered_recommended_data_path = f"processed_data/all_filtered_recommended.xlsx"
+    all_filtered_recommended_data = pd.read_excel(all_filtered_recommended_data_path, index_col=0).values
 
     all_filtered_recommended_dictionaries = {}
     for row in tqdm(all_filtered_recommended_data, desc=f'Summarize significance: Transforming data', ascii=True):
@@ -259,6 +267,26 @@ def summarize_significance_and_calculate_difference():
         for InstitutionAnanmID in all_filtered_recommended_dictionaries[Stkcd].keys():
             all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID] = list(filter(lambda d: d['Keep'], all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID]))
 
+
+    # # 企管系教授額外要求的「第 5 步驟結果」
+    # all_filtered_recommended_data = []
+    # for Stkcd in tqdm(all_filtered_recommended_dictionaries.keys(), desc=f'Summarize significance: Transforming data for Step.5 answer', ascii=True):
+    #     for InstitutionAnanmID in all_filtered_recommended_dictionaries[Stkcd].keys():
+    #         for d in all_filtered_recommended_dictionaries[Stkcd][InstitutionAnanmID]:
+    #             all_filtered_recommended_data.append([
+    #                 f'{Stkcd:06d}', d['EditedRptdt'], InstitutionAnanmID, d['Stdrank']
+    #             ])
+    # all_filtered_recommended_data = sorted(all_filtered_recommended_data, key=lambda r: r[2])
+    # all_filtered_recommended_data = sorted(all_filtered_recommended_data, key=lambda r: r[1])
+    # all_filtered_recommended_data = sorted(all_filtered_recommended_data, key=lambda r: r[0])
+    # all_filtered_recommended_data_columns = ['Stkcd', 'EditedRptdt', 'InstitutionAnanmID', 'Stdrank']
+    # all_filtered_recommended_data_output = pd.DataFrame(all_filtered_recommended_data, columns=all_filtered_recommended_data_columns)
+    # print(f"Summarize significance: Saving remaining InstitutionAnanmID data...")
+    # all_filtered_recommended_data_output.to_excel(f"processed_data/remaining_InstitutionAnanmID.xlsx")
+    
+
+    all_filtered_recommended_data = []
+    for Stkcd in tqdm(all_filtered_recommended_dictionaries.keys(), desc=f'Summarize significance: Averaging & transforming data', ascii=True):
         Stkcd_dictionary = {}
         for value in all_filtered_recommended_dictionaries[Stkcd].values():
             for d in value:
@@ -268,8 +296,6 @@ def summarize_significance_and_calculate_difference():
             Stkcd_dictionary[EditedRptdt] = sum(Stkcd_dictionary[EditedRptdt]) / len(Stkcd_dictionary[EditedRptdt])
         all_filtered_recommended_dictionaries[Stkcd] = { t[0]: t[1] for t in sorted(Stkcd_dictionary.items(), key=lambda e: e[0]) }
 
-    all_filtered_recommended_data = []
-    for Stkcd in tqdm(all_filtered_recommended_dictionaries.keys(), desc=f'Summarize significance: Transforming data', ascii=True):
         for EditedRptdt in all_filtered_recommended_dictionaries[Stkcd].keys():
             all_filtered_recommended_data.append([ f'{Stkcd:06d}', EditedRptdt, all_filtered_recommended_dictionaries[Stkcd][EditedRptdt] ])
 
@@ -303,7 +329,7 @@ def summarize_significance_and_calculate_difference():
         }
         for EditedRptdt in all_filtered_recommended_dictionaries[Stkcd].keys():
             all_filtered_recommended_data.append([
-                Stkcd,
+                f'{Stkcd:06d}',
                 EditedRptdt,
                 all_filtered_recommended_dictionaries[Stkcd][EditedRptdt][0],
                 all_filtered_recommended_dictionaries[Stkcd][EditedRptdt][1]
@@ -312,7 +338,7 @@ def summarize_significance_and_calculate_difference():
     all_filtered_recommended_data_output = pd.DataFrame(all_filtered_recommended_data, columns=all_filtered_recommended_data_columns)
     print(f"Summarize significance: Saving filtered significant average recommended data...")
     all_filtered_recommended_data_output.to_excel(f"processed_data/filtered_significant_average.xlsx")
-    print(f"Summarize significance: Done. not_existed_company_season: {not_existed_company_season}\n")
+    print(f"Summarize significance: Done. Amount of not_existed_company_season: {len(not_existed_company_season)}\n")
 
 
 ''' Execution '''
